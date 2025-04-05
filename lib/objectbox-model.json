@@ -1,0 +1,64 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:911009096869053591",
+      "lastPropertyId": "5:6329919044772897303",
+      "name": "ThemeSettings",
+      "properties": [
+        {
+          "id": "1:5509613515236597638",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "4:6699505089589623735",
+          "name": "colorValue",
+          "type": 6
+        },
+        {
+          "id": "5:6329919044772897303",
+          "name": "themeModeValue",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:2396034708830277872",
+      "lastPropertyId": "2:2445122221728253762",
+      "name": "UserInfo",
+      "properties": [
+        {
+          "id": "1:6047155235904554337",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:2445122221728253762",
+          "name": "name",
+          "type": 9
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "2:2396034708830277872",
+  "lastIndexId": "0:0",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [
+    3754815063191241985,
+    4733359890074474874
+  ],
+  "retiredRelationUids": [],
+  "version": 1
+}

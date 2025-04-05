@@ -42,10 +42,17 @@ dependencies:
   uuid: ^4.5.1
   mime: ^2.0.0
   open_file: ^3.5.10
-  path_provider: ^2.1.5
   file_picker: ^10.0.0
+  window_manager: ^0.4.3
+  signals_flutter: ^6.0.2
+  objectbox: ^4.1.0
+  objectbox_flutter_libs: ^4.1.0
+  flutter_colorpicker: ^1.1.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
+  build_runner: ^2.4.15
+  objectbox_generator: ^4.1.0
   flutter_test:
     sdk: flutter
 

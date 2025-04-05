@@ -2,107 +2,85 @@ syntax = "proto3";
 
 package chat;
 
-// 玩家信息
-message Player {
-  string player_id = 1;       // 玩家唯一标识符
-  string name = 2;            // 玩家名称
-  bool is_host = 3;           // 是否为主机(服务器)
-  bool is_connected = 4;      // 是否已连接
+option go_package = "e:/astro_game/protos/chat";
+
+// 用户信息
+message User {
+  string user_id = 1;        // 用户唯一ID
+  string username = 2;       // 用户名
+  string virtual_ip = 3;     // 虚拟IP（包含频道名称信息）
+  repeated string tags = 4;  // 当前标签
+  string current_game = 5;   // 当前游玩游戏名（可以为空）
 }
 
-// 聊天消息
-message ChatMessage {
-  string message_id = 1;      // 消息唯一标识符
-  string content = 2;         // 消息内容
-  int64 timestamp = 3;        // 发送时间戳（Unix时间）
-  string sender_id = 4;       // 发送者ID
-  string sender_name = 5;     // 发送者名称
+// 节点信息
+message Node {
+  string node_id = 1;        // 节点ID
+  string user_id = 2;        // 关联的用户ID
+  string address = 3;        // 节点地址（IP:端口）
+  int64 last_heartbeat = 4;  // 最后心跳时间
+  bool can_relay = 5;        // 是否可以作为中继节点
 }
 
-// 发送消息请求
-message SendMessageRequest {
-  string content = 1;
-  string target_player_id = 2;  // 目标玩家ID，为空表示发送给所有人
+// 消息类型
+enum MessageType {
+  TEXT = 0;    // 文本消息
+  IMAGE = 1;   // 图片消息
+  SYSTEM = 2;  // 系统消息
 }
 
-// 发送消息响应
-message SendMessageResponse {
+// 消息内容
+message Message {
+  string message_id = 1;     // 消息唯一ID
+  string sender_id = 2;      // 发送者ID
+  MessageType type = 3;      // 消息类型
+  string content = 4;        // 消息内容
+  int64 sent_at = 5;         // 发送时间（Unix时间戳）
+  string signature = 6;      // 消息签名（防篡改）
+}
+
+// 节点心跳请求
+message HeartbeatRequest {
+  string node_id = 1;
+  User user_info = 2;        // 用户信息（用于实时更新成员列表）
+  int64 timestamp = 3;
+}
+
+// 节点心跳响应
+message HeartbeatResponse {
   bool success = 1;
-  string error_message = 2;
-  ChatMessage message = 3;
+  int64 server_time = 2;
+  repeated User active_users = 3; // 当前活跃用户列表
 }
 
-// 获取消息请求
-message GetMessagesRequest {
-  // 空请求，获取所有消息
+// 频道加入通知
+message ChannelJoinNotification {
+  User user = 1;             // 加入的用户
+  Node node = 2;             // 用户节点
 }
 
-// 获取消息响应
-message GetMessagesResponse {
-  repeated ChatMessage messages = 1;
+// 频道离开通知
+message ChannelLeaveNotification {
+  string user_id = 1;        // 离开的用户ID
+  string node_id = 2;        // 节点ID
 }
 
-// 加入游戏请求
-message JoinGameRequest {
-  Player player = 1;          // 玩家信息
+// 双向流消息容器
+message StreamMessage {
+  oneof message_type {
+    Message chat_message = 1;           // 聊天消息
+    User user_status = 2;               // 用户状态更新
+    ChannelJoinNotification join = 3;   // 加入通知
+    ChannelLeaveNotification leave = 4; // 离开通知
+    HeartbeatRequest heartbeat = 5;     // 心跳请求
+    HeartbeatResponse heartbeat_ack = 6; // 心跳响应
+  }
+  int64 timestamp = 7;                  // 消息时间戳
+  string node_id = 8;                   // 发送节点ID
 }
 
-// 加入游戏响应
-message JoinGameResponse {
-  bool success = 1;
-  string error_message = 2;
-  repeated Player players = 3;  // 当前游戏中的所有玩家
-}
-
-// 离开游戏请求
-message LeaveGameRequest {
-  string player_id = 1;
-}
-
-// 离开游戏响应
-message LeaveGameResponse {
-  bool success = 1;
-}
-
-// 获取玩家列表请求
-message GetPlayersRequest {
-  // 空请求
-}
-
-// 获取玩家列表响应
-message GetPlayersResponse {
-  repeated Player players = 1;
-}
-
-// 主机变更通知
-message HostChangeNotification {
-  string new_host_id = 1;     // 新主机ID
-  string new_host_name = 2;   // 新主机名称
-}
-
-// 聊天服务定义
-service ChatService {
-  // 发送消息
-  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
-  
-  // 获取消息
-  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
-  
-  // 订阅消息流
-  rpc SubscribeToMessages(GetMessagesRequest) returns (stream ChatMessage);
-  
-  // 加入游戏
-  rpc JoinGame(JoinGameRequest) returns (JoinGameResponse);
-  
-  // 离开游戏
-  rpc LeaveGame(LeaveGameRequest) returns (LeaveGameResponse);
-  
-  // 获取玩家列表
-  rpc GetPlayers(GetPlayersRequest) returns (GetPlayersResponse);
-  
-  // 订阅玩家变动
-  rpc SubscribeToPlayerChanges(GetPlayersRequest) returns (stream Player);
-  
-  // 订阅主机变更
-  rpc SubscribeToHostChanges(GetPlayersRequest) returns (stream HostChangeNotification);
+// P2P 聊天服务
+service P2PChatService {
+  // 双向流通信通道
+  rpc BidirectionalStream(stream StreamMessage) returns (stream StreamMessage);
 }
