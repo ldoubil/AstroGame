@@ -29,7 +29,7 @@
     },
     {
       "id": "2:2396034708830277872",
-      "lastPropertyId": "2:2445122221728253762",
+      "lastPropertyId": "3:929638811128286785",
       "name": "UserInfo",
       "properties": [
         {
@@ -42,12 +42,51 @@
           "id": "2:2445122221728253762",
           "name": "name",
           "type": 9
+        },
+        {
+          "id": "3:929638811128286785",
+          "name": "uuid",
+          "type": 9
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "3:8681500856948749996",
+      "lastPropertyId": "5:4004391173735198339",
+      "name": "Channel",
+      "properties": [
+        {
+          "id": "1:5937589296557494474",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3483454427122389313",
+          "name": "channelName",
+          "type": 9
+        },
+        {
+          "id": "3:616571315617748429",
+          "name": "serverName",
+          "type": 9
+        },
+        {
+          "id": "4:1992108930917177170",
+          "name": "serverPassword",
+          "type": 9
+        },
+        {
+          "id": "5:4004391173735198339",
+          "name": "rawString",
+          "type": 9
         }
       ],
       "relations": []
     }
   ],
-  "lastEntityId": "2:2396034708830277872",
+  "lastEntityId": "3:8681500856948749996",
   "lastIndexId": "0:0",
   "lastRelationId": "0:0",
   "lastSequenceId": "0:0",

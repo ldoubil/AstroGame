@@ -3,7 +3,11 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  objectbox_flutter_libs
+  audioplayers_windows
+  emoji_picker_flutter
+  file_selector_windows
+  permission_handler_windows
+  record_windows
   screen_retriever_windows
   window_manager
 )

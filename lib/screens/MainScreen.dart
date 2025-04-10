@@ -1,11 +1,28 @@
 import 'dart:io';
+import 'package:astro_game/screens/RoomPage.dart';
 import 'package:flutter/material.dart';
 import 'package:astro_game/screens/HomePage.dart';
 import 'package:astro_game/screens/ProfilePage.dart';
 import 'package:astro_game/widgets/theme_selector.dart'; // 添加主题选择器导入
 import 'package:astro_game/widgets/window_control.dart'; // 添加窗口控制导入
 import 'package:astro_game/k/AppState.dart';
-import 'package:signals_flutter/signals_flutter.dart'; // 添加
+import 'package:signals_flutter/signals_flutter.dart';
+import 'package:window_manager/window_manager.dart'; // 添加
+
+// 添加菜单项配置类
+class NavigationItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final Widget page;
+
+  const NavigationItem({
+    required this.icon,
+    IconData? activeIcon,
+    required this.label,
+    required this.page,
+  }) : activeIcon = activeIcon ?? icon;
+}
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -14,11 +31,55 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+// 添加 SingleTickerProviderStateMixin 以支持动画控制器
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
+  // 添加动画控制器
+  late final AnimationController _controller;
+  // 添加鼠标悬停状态跟踪
+  int? _hoveredIndex;
 
-  // 页面列表，用于持久化内嵌
-  final List<Widget> _pages = [const HomePage(), const ProfilePage()];
+  @override
+  void initState() {
+    super.initState();
+    // 初始化动画控制器
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // 定义菜单项配置
+  final List<NavigationItem> _navigationItems = [
+    NavigationItem(
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home,
+      label: '主页',
+      page: const HomePage(),
+    ),
+    NavigationItem(
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+      label: '聊天',
+      page: const RoomPage(),
+    ),
+    NavigationItem(
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+      label: '我的',
+      page: const ProfilePage(),
+    ),
+  ];
+
+  // 替换原有的 _pages 定义
+  List<Widget> get _pages => _navigationItems.map((item) => item.page).toList();
 
   void _onItemTapped(int index) {
     setState(() {
@@ -40,222 +101,242 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 获取主题颜色
     final colorScheme = Theme.of(context).colorScheme;
-    // 获取屏幕宽度
     final screenWidth = MediaQuery.of(context).size.width;
-    // 判断是否为宽屏设备（宽度大于600像素视为宽屏）
-    final isWideScreen = screenWidth > 600;
-
-    // 判断是否为桌面平台（仅用于窗口控制按钮）
-    final isDesktop =
-        Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    // 修改判断逻辑：宽度大于 1024 像素时使用桌面布局
+    final isDesktop = screenWidth > AppState().screenSplitWidth.value;
 
     return Scaffold(
-      // 修改背景色为次颜色
-      // 主页面的基本结构
-      appBar: AppBar(
-        title: const Text('主页面'),
-        backgroundColor: colorScheme.primaryContainer,
-        foregroundColor: colorScheme.onPrimaryContainer,
-        actions: [
-          Watch((context) {
-            // 直接监听 themeMode 信号
-            final themeMode = AppState().themeMode.value;
-            final appState = AppState();
-
-            // 获取主题对应的图标
-            IconData getThemeIcon() {
-              switch (themeMode) {
-                case ThemeMode.light:
-                  return Icons.wb_sunny;
-                case ThemeMode.dark:
-                  return Icons.nightlight_round;
-                default:
-                  return Icons.auto_mode;
-              }
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(36),
+        child: GestureDetector(
+          onPanStart: (details) {
+            if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+              windowManager.startDragging();
             }
+          },
+          child: AppBar(
+            title: const Text('AstroGame', style: TextStyle(fontSize: 18)),
+            backgroundColor: colorScheme.primaryContainer,
+            foregroundColor: colorScheme.onPrimaryContainer,
+            toolbarHeight: 36,
+            actions: [
+              Watch((context) {
+                // 直接监听 themeMode 信号
+                final themeMode = AppState().themeMode.value;
+                final appState = AppState();
 
-            // 切换主题模式的逻辑
-            void toggleThemeMode() {
-              switch (themeMode) {
-                case ThemeMode.light:
-                  appState.setThemeMode(ThemeMode.dark);
-                  break;
-                case ThemeMode.dark:
-                  appState.setThemeMode(ThemeMode.system);
-                  break;
-                default:
-                  appState.setThemeMode(ThemeMode.light);
-              }
-            }
+                // 获取主题对应的图标
+                IconData getThemeIcon() {
+                  switch (themeMode) {
+                    case ThemeMode.light:
+                      return Icons.wb_sunny;
+                    case ThemeMode.dark:
+                      return Icons.nightlight_round;
+                    default:
+                      return Icons.auto_mode;
+                  }
+                }
 
-            return IconButton(
-              icon: Icon(getThemeIcon()),
-              onPressed: toggleThemeMode,
-              tooltip: getThemeModeText(themeMode),
-              padding: const EdgeInsets.all(8),
-            );
-          }),
+                // 切换主题模式的逻辑
+                void toggleThemeMode() {
+                  switch (themeMode) {
+                    case ThemeMode.light:
+                      appState.setThemeMode(ThemeMode.dark);
+                      break;
+                    case ThemeMode.dark:
+                      appState.setThemeMode(ThemeMode.system);
+                      break;
+                    default:
+                      appState.setThemeMode(ThemeMode.light);
+                  }
+                }
 
-          IconButton(
-            icon: const Icon(Icons.color_lens),
-            onPressed: () => showThemeColorPicker(context),
-            tooltip: '选择主题颜色',
-            padding: const EdgeInsets.all(8),
+                return IconButton(
+                  icon: Icon(getThemeIcon()),
+                  onPressed: toggleThemeMode,
+                  tooltip: getThemeModeText(themeMode),
+                  padding: const EdgeInsets.all(8),
+                );
+              }),
+
+              IconButton(
+                icon: const Icon(Icons.color_lens, size: 20), // 减小图标大小
+                onPressed: () => showThemeColorPicker(context),
+                tooltip: '选择主题颜色',
+                padding: const EdgeInsets.all(4), // 减小内边距
+              ),
+              if (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
+                const WindowControls(),
+            ],
           ),
-
-          // 判断是否为桌面平台
-          if (isDesktop) ...[
-            // 添加窗口控制按钮
-            const WindowControls(),
-          ],
-        ],
+        ),
       ),
-      body: Stack(
+      // 移除 drawer，改用 Row 布局
+      body: Row(
         children: [
-          // 主内容区域
-          IndexedStack(index: _selectedIndex, children: _pages),
-
-          // 仅在宽屏设备显示悬浮导航
-          if (isWideScreen)
-            Positioned(
-              bottom: 20,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutQuad,
-                  width: 200,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(51),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(30),
-                    child: Stack(
-                      children: [
-                        // 选中项指示器
-                        AnimatedPositioned(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOutQuad,
-                          left: _selectedIndex * 100,
-                          top: 0,
-                          bottom: 0,
-                          width: 100,
-                          child: Container(
-                            margin: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer.withOpacity(
-                                0.5,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                        ),
-                        // 导航项
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Expanded(
-                              child: _buildNavItem(
-                                Icons.home,
-                                '主页',
-                                0,
-                                colorScheme,
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildNavItem(
-                                Icons.person,
-                                '我的',
-                                1,
-                                colorScheme,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+          if (isDesktop)
+            Container(
+              width: 80,
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                border: Border(
+                  right: BorderSide(
+                    color: colorScheme.outlineVariant,
+                    width: 1,
                   ),
                 ),
               ),
-            ),
-        ],
-      ),
-      // 仅在窄屏设备显示底部导航栏
-      bottomNavigationBar:
-          isWideScreen
-              ? null
-              : BottomNavigationBar(
-                backgroundColor: colorScheme.surfaceContainerLow, // 设置透明背景
-                elevation: 0, // 移除阴影
-                selectedItemColor: colorScheme.onSurface,
-                unselectedItemColor: colorScheme.onSurfaceVariant,
-                items: <BottomNavigationBarItem>[
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.home_outlined), // 未选中时使用镂空图标
-                    activeIcon: Icon(Icons.home), // 选中时使用实心图标
-                    label: '主页',
-                    backgroundColor: Colors.transparent, // 确保项目背景透明
+              child: Stack(
+                children: [
+                  // 添加滑动指示器
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    tween: Tween<double>(
+                      begin: 4.0 + (_selectedIndex * 72.0),
+                      end: 4.0 + (_selectedIndex * 72.0),
+                    ),
+                    builder: (context, value, child) {
+                      return Positioned(
+                        top: value,
+                        left: 8,
+                        right: 8,
+                        height: 64,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.person_outline), // 未选中时使用镂空图标
-                    activeIcon: Icon(Icons.person), // 选中时使用实心图标
-                    label: '我的',
-                    backgroundColor: Colors.transparent, // 确保项目背景透明
+                  // 鼠标悬停指示器
+                  if (_hoveredIndex != null && _hoveredIndex != _selectedIndex)
+                    Positioned(
+                      top: 4.0 + (_hoveredIndex! * 72.0),
+                      left: 8,
+                      right: 8,
+                      height: 64,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceVariant.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  // 导航项列表
+                  Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: _navigationItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _navigationItems[index];
+                            return _buildNavItem(
+                              item.icon,
+                              item.label,
+                              index,
+                              colorScheme,
+                              item,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ],
+              ),
+            ),
+          Expanded(
+            child: IndexedStack(index: _selectedIndex, children: _pages),
+          ),
+        ],
+      ),
+      // 保持移动端的底部导航栏
+      bottomNavigationBar:
+          isDesktop
+              ? null
+              : BottomNavigationBar(
+                backgroundColor: colorScheme.surfaceContainerLow,
+                elevation: 8, // 增加阴影
+                type: BottomNavigationBarType.fixed, // 固定类型
+                selectedItemColor: colorScheme.primary, // 使用主题主色
+                unselectedItemColor: colorScheme.onSurfaceVariant,
+                showUnselectedLabels: true, // 显示未选中项的标签
+                items:
+                    _navigationItems
+                        .map(
+                          (item) => BottomNavigationBarItem(
+                            icon: Icon(item.icon),
+                            activeIcon: Icon(item.activeIcon),
+                            label: item.label,
+                          ),
+                        )
+                        .toList(),
                 currentIndex: _selectedIndex,
                 onTap: _onItemTapped,
               ),
     );
   }
 
-  // 构建导航项
+  // 修改导航项构建方法
   Widget _buildNavItem(
     IconData icon,
     String label,
     int index,
     ColorScheme colorScheme,
+    dynamic item,
   ) {
     final isSelected = _selectedIndex == index;
-    return InkWell(
-      onTap: () => _onItemTapped(index),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color:
-                  isSelected
-                      ? colorScheme.primary
-                      : colorScheme.onSurfaceVariant,
-            ),
-            Text(
-              label,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredIndex = index),
+      onExit: (_) => setState(() => _hoveredIndex = null),
+      child: Container(
+        height: 64,
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            if (_selectedIndex != index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            }
+          },
+          child: Center(
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
               style: TextStyle(
                 fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color:
                     isSelected
                         ? colorScheme.primary
                         : colorScheme.onSurfaceVariant,
               ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      isSelected ? item.activeIcon : item.icon,
+                      color:
+                          isSelected
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                      size: 24,
+                      key: ValueKey(isSelected),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(item.label),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );

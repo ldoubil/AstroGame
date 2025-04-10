@@ -1,44 +1,29 @@
 import 'package:flutter/material.dart';
-// 这个文件会由 ObjectBox 自动生成
-import '../objectbox.g.dart';
+import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart'; // 添加导入
 
-@Entity()
+final _uuid = Uuid();
+
 class ThemeSettings {
-  @Id()
-  int id;
-
-  // 存储主题颜色的RGB值（作为整数）
   int colorValue;
-
-  // 存储主题模式 (0: 跟随系统, 1: 暗色, 2: 亮色)
   int themeModeValue;
 
-  // 使用命名构造函数创建默认实例
+  ThemeSettings({required this.colorValue, required this.themeModeValue});
+
   ThemeSettings.defaults()
-    : id = 1,
-      colorValue = Colors.cyanAccent.toARGB32(),
+    : colorValue = Colors.cyanAccent.value,
       themeModeValue = 0;
 
-  ThemeSettings({
-    this.id = 1, // 固定使用ID 1
-    required this.colorValue,
-    required this.themeModeValue,
-  });
-
-  // 获取Color对象
   Color get color => Color(colorValue);
 
-  // 设置Color对象
-  set color(Color color) => colorValue = color.toARGB32();
+  set color(Color color) => colorValue = color.value;
 
-  // 获取ThemeMode对象
   ThemeMode get themeMode => switch (themeModeValue) {
     1 => ThemeMode.dark,
     2 => ThemeMode.light,
     _ => ThemeMode.system,
   };
 
-  // 设置ThemeMode对象
   set themeMode(ThemeMode mode) =>
       themeModeValue = switch (mode) {
         ThemeMode.dark => 1,
@@ -46,172 +31,196 @@ class ThemeSettings {
         ThemeMode.system => 0,
       };
 
-  // 复制并修改当前实例
-  ThemeSettings copyWith({int? colorValue, int? themeModeValue}) {
-    return ThemeSettings(
-      colorValue: colorValue ?? this.colorValue,
-      themeModeValue: themeModeValue ?? this.themeModeValue,
-    );
-  }
+  Map<String, dynamic> toMap() => {
+    'colorValue': colorValue,
+    'themeModeValue': themeModeValue,
+  };
+
+  static ThemeSettings fromMap(Map data) => ThemeSettings(
+    colorValue: data['colorValue'],
+    themeModeValue: data['themeModeValue'],
+  );
 }
 
-@Entity()
 class UserInfo {
-  @Id()
-  int id;
-
-  // 用户名称
   String name;
+  String uuid;
 
-  UserInfo({this.id = 1, required this.name}); // 固定使用ID 1
-}
+  UserInfo({required this.name, String? uuid}) : uuid = uuid ?? _uuid.v4();
 
-class AppBox {
-  late final Store _store;
-  late final Box<ThemeSettings> _themeBox;
-  late final Box<UserInfo> _userBox;
-
-  // 默认存储目录
-  static String defaultDirectory = 'app-data-db';
-
-  // 单例模式
-  static final AppBox _instance = AppBox._internal();
-
-  factory AppBox() {
-    return _instance;
+  UserInfo copyWith({String? name}) {
+    return UserInfo(name: name ?? this.name, uuid: uuid);
   }
 
+  Map<String, dynamic> toMap() => {'name': name, 'uuid': uuid};
+
+  static UserInfo fromMap(Map data) =>
+      UserInfo(name: data['name'], uuid: data['uuid']);
+}
+
+// 在 Channel 类中添加 id 字段
+class Channel {
+  final String id; // 新增
+  String channelName;
+  String serverName;
+  String serverPassword;
+  String rawString;
+
+  Channel({
+    String? id, // 新增
+    required this.channelName,
+    required this.serverName,
+    required this.serverPassword,
+    required this.rawString,
+  }) : id = id ?? _uuid.v4(); // 新增
+
+  Map<String, dynamic> toMap() => {
+    'id': id, // 新增
+    'channelName': channelName,
+    'serverName': serverName,
+    'serverPassword': serverPassword,
+    'rawString': rawString,
+  };
+
+  static Channel fromMap(Map data) => Channel(
+    id: data['id'], // 新增
+    channelName: data['channelName'],
+    serverName: data['serverName'],
+    serverPassword: data['serverPassword'],
+    rawString: data['rawString'],
+  );
+}
+
+// 在 AppBox 类中添加和修改相关方法
+class AppBox {
+  static final AppBox _instance = AppBox._internal();
+  factory AppBox() => _instance;
   AppBox._internal();
 
-  // 初始化存储
-  Future<void> initialize({String? customDirectory}) async {
-    final directory = customDirectory ?? defaultDirectory;
-    _store = await openStore(directory: directory);
-    _themeBox = _store.box<ThemeSettings>();
-    _userBox = _store.box<UserInfo>();
+  late Box themeBox;
+  late Box userBox;
+  late Box channelBox;
+
+  static const themeKey = 'theme';
+  static const userKey = 'user';
+
+  static const channelKey = 'channels'; // 添加常量key
+
+  Future<void> initialize(String customDirectory) async {
+    Hive.init(customDirectory);
+    themeBox = await Hive.openBox('themeBox');
+    userBox = await Hive.openBox('userBox');
+    channelBox = await Hive.openBox('channelBox');
   }
 
-  // 获取主题设置，如果不存在则返回默认值
-  ThemeSettings getThemeSettings({
-    Color defaultColor = Colors.cyanAccent, // 默认蓝色
-    ThemeMode defaultThemeMode = ThemeMode.system, // 默认跟随系统
-  }) {
-    final settings = _themeBox.get(1);
-    if (settings != null) {
-      return settings;
-    }
+  void saveChannel(Channel channel) {
+    final channels = getAllChannels();
+    channels.add(channel);
+    channelBox.put(channelKey, channels.map((e) => e.toMap()).toList());
+  }
 
-    // 创建新的设置并保存
+  void removeChannelById(String id) {
+    final channels = getAllChannels();
+    channels.removeWhere((e) => e.id == id);
+    // 保存更新后的频道列表到数据库
+    channelBox.put(channelKey, channels.map((e) => e.toMap()).toList());
+  }
+
+  Channel? getChannelById(String id) {
+    try {
+      return getAllChannels().firstWhere((channel) => channel.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  List<Channel> getAllChannels() {
+    final data = channelBox.get(channelKey);
+    if (data == null) return [];
+    return (data as List).map((e) => Channel.fromMap(e)).toList();
+  }
+
+  void removeChannel(Channel channel) {
+    final channels = getAllChannels();
+    channels.removeWhere(
+      (e) =>
+          e.channelName == channel.channelName &&
+          e.serverName == channel.serverName,
+    );
+    channelBox.put(channelKey, channels.map((e) => e.toMap()).toList());
+  }
+
+  ThemeSettings getThemeSettings({
+    Color defaultColor = Colors.cyanAccent,
+    ThemeMode defaultThemeMode = ThemeMode.system,
+  }) {
+    final data = themeBox.get(themeKey);
+    if (data != null) return ThemeSettings.fromMap(data);
     final newSettings = ThemeSettings(
       colorValue: defaultColor.value,
-      themeModeValue:
-          defaultThemeMode == ThemeMode.dark
-              ? 1
-              : defaultThemeMode == ThemeMode.light
-              ? 2
-              : 0,
+      themeModeValue: switch (defaultThemeMode) {
+        ThemeMode.dark => 1,
+        ThemeMode.light => 2,
+        _ => 0,
+      },
     );
     saveThemeSettings(newSettings);
     return newSettings;
   }
 
-  // 保存颜色设置
   int saveColorSettings(Color color) {
-    final settings = _themeBox.get(1);
-    if (settings != null) {
-      settings.colorValue = color.value;
-      return _themeBox.put(settings);
-    } else {
-      return 0;
-    }
+    final settings = getThemeSettings();
+    settings.color = color;
+    saveThemeSettings(settings);
+    return 1;
   }
 
-  // 保存主题模式设置
+  String getUUID() {
+    final user = userBox.get(userKey);
+    if (user != null) return user['uuid'];
+    final newUser = UserInfo(name: "无名氏");
+    saveUserInfo(newUser);
+    return newUser.uuid;
+  }
+
+  String getName() {
+    final user = userBox.get(userKey);
+    if (user != null) return user['name'];
+    final newUser = UserInfo(name: "无名氏");
+    saveUserInfo(newUser);
+    return newUser.name;
+  }
+
+  int saveName(String name) {
+    final user = getUserInfo();
+    user.name = name;
+    return saveUserInfo(user);
+  }
+
   int saveThemeModeSettings(ThemeMode themeMode) {
-    final settings = _themeBox.get(1);
-    if (settings != null) {
-      settings.themeModeValue =
-          themeMode == ThemeMode.dark
-              ? 1
-              : themeMode == ThemeMode.light
-              ? 2
-              : 0;
-      return _themeBox.put(settings);
-    }
-    return 0; // 如果设置不存在则返回0
+    final settings = getThemeSettings();
+    settings.themeMode = themeMode;
+    saveThemeSettings(settings);
+    return 1;
   }
 
-  // 保存主题设置
   int saveThemeSettings(ThemeSettings settings) {
-    // 先检查是否存在ID为1的对象
-    final existingSettings = _themeBox.get(1);
-    if (existingSettings != null) {
-      // 如果存在，更新其属性而不是创建新对象
-      existingSettings.colorValue = settings.colorValue;
-      existingSettings.themeModeValue = settings.themeModeValue;
-      return _themeBox.put(existingSettings);
-    } else {
-      // 如果不存在，创建新对象
-      settings.id = 0; // 使用0让ObjectBox自动分配ID
-      final newId = _themeBox.put(settings);
-      // 如果自动分配的ID不是1，则删除并重新创建
-      if (newId != 1) {
-        _themeBox.remove(newId);
-        settings.id = 1;
-        try {
-          return _themeBox.put(settings);
-        } catch (e) {
-          // 如果仍然失败，则清空所有记录并重新插入
-          _themeBox.removeAll();
-          settings.id = 1;
-          return _themeBox.put(settings);
-        }
-      }
-      return newId;
-    }
+    themeBox.put(themeKey, settings.toMap());
+    return 1;
   }
 
-  // 保存用户信息
   int saveUserInfo(UserInfo userInfo) {
-    // 先检查是否存在ID为1的对象
-    final existingUserInfo = _userBox.get(1);
-    if (existingUserInfo != null) {
-      // 如果存在，更新其属性而不是创建新对象
-      existingUserInfo.name = userInfo.name;
-      return _userBox.put(existingUserInfo);
-    } else {
-      // 如果不存在，创建新对象
-      userInfo.id = 0; // 使用0让ObjectBox自动分配ID
-      final newId = _userBox.put(userInfo);
-      // 如果自动分配的ID不是1，则删除并重新创建
-      if (newId != 1) {
-        _userBox.remove(newId);
-        userInfo.id = 1;
-        try {
-          return _userBox.put(userInfo);
-        } catch (e) {
-          // 如果仍然失败，则清空所有记录并重新插入
-          _userBox.removeAll();
-          userInfo.id = 1;
-          return _userBox.put(userInfo);
-        }
-      }
-      return newId;
-    }
+    userBox.put(userKey, userInfo.toMap());
+    return 1;
   }
 
-  // 获取用户信息，如果不存在则返回默认值
   UserInfo getUserInfo({String defaultName = "用户"}) {
-    final userInfo = _userBox.get(1);
-    if (userInfo != null) {
-      return userInfo;
-    }
-
+    final data = userBox.get(userKey);
+    if (data != null) return UserInfo.fromMap(data);
     return UserInfo(name: defaultName);
   }
 
-  // 关闭存储
   void closeStore() {
-    _store.close();
+    Hive.close();
   }
 }

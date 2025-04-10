@@ -3,8 +3,11 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  objectbox_flutter_libs
+  audioplayers_linux
+  emoji_picker_flutter
+  file_selector_linux
   open_file_linux
+  record_linux
   screen_retriever_linux
   window_manager
 )
